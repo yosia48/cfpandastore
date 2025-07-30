@@ -5,11 +5,11 @@ import { connect } from "cloudflare:sockets";
 // Variables
 const rootDomain = "pandastoreid.my.id"; // Ganti dengan domain utama kalian
 const serviceName = "cfpandastore"; // Ganti dengan nama workers kalian
-const apiKey = ""; // Ganti dengan Global API key kalian (https://dash.cloudflare.com/profile/api-tokens)
-const apiEmail = ""; // Ganti dengan email yang kalian gunakan
-const accountID = ""; // Ganti dengan Account ID kalian (https://dash.cloudflare.com -> Klik domain yang kalian gunakan)
-const zoneID = ""; // Ganti dengan Zone ID kalian (https://dash.cloudflare.com -> Klik domain yang kalian gunakan)
-let isApiReady = false;
+const apiKey = "30d01fcd6014e82594579e4eed0b90ade6079"; // Ganti dengan Global API key kalian (https://dash.cloudflare.com/profile/api-tokens)
+const apiEmail = "pandastore.customer@gmail.com"; // Ganti dengan email yang kalian gunakan
+const accountID = "e9a7cf13a5df59c2923bcaf694beef84"; // Ganti dengan Account ID kalian (https://dash.cloudflare.com -> Klik domain yang kalian gunakan)
+const zoneID = "02265e953623b9f9683a57dd6ee7b8db"; // Ganti dengan Zone ID kalian (https://dash.cloudflare.com -> Klik domain yang kalian gunakan)
+let isApiReady = true;
 let proxyIP = "";
 let cachedProxyList = [];
 
