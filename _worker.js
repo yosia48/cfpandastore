@@ -14,7 +14,7 @@ let proxyIP = "";
 let cachedProxyList = [];
 
 // Constant
-const APP_DOMAIN = `${rootDomain}`;
+const APP_DOMAIN = `${serviceName}.${rootDomain}`;
 const PORTS = [443, 80];
 const PROTOCOLS = [reverse("najort"), reverse("sselv"), reverse("ss")];
 const KV_PROXY_URL = "https://raw.githubusercontent.com/FoolVPN-ID/Nautica/refs/heads/main/kvProxyList.json";
