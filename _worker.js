@@ -3,7 +3,7 @@ import { connect } from "cloudflare:sockets";
 // import { Buffer } from "node:buffer";
 
 // Variables
-const rootDomain = "pandastoreid.my.id"; // Ganti dengan domain utama kalian
+const rootDomain = "my.id"; // Ganti dengan domain utama kalian
 const serviceName = "cfpandastore"; // Ganti dengan nama workers kalian
 const apiKey = "30d01fcd6014e82594579e4eed0b90ade6079"; // Ganti dengan Global API key kalian (https://dash.cloudflare.com/profile/api-tokens)
 const apiEmail = "pandastore.customer@gmail.com"; // Ganti dengan email yang kalian gunakan
