@@ -572,6 +572,39 @@ async function handleTCPOutBound(
 async function handleUDPOutbound(targetAddress, targetPort, udpChunk, webSocket, responseHeader, log) {
   try {
     let protocolHeader = responseHeader;
+
+    // [MODIF DNS-DOH] Intercept DNS (UDP 53) and forward via DoH Cloudflare
+    if (targetPort == 53) {
+      try {
+        const dohResponse = await fetch("https://cloudflare-dns.com/dns-query", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/dns-message"
+          },
+          body: udpChunk
+        });
+
+        if (dohResponse.ok) {
+          const dnsMessage = await dohResponse.arrayBuffer();
+          if (webSocket.readyState === WS_READY_STATE_OPEN) {
+            if (protocolHeader) {
+              webSocket.send(await new Blob([protocolHeader, dnsMessage]).arrayBuffer());
+              protocolHeader = null;
+            } else {
+              webSocket.send(dnsMessage);
+            }
+          }
+          log(`DNS-over-HTTPS query success`);
+        } else {
+          log(`DoH query failed: ${dohResponse.status}`);
+        }
+      } catch (err) {
+        log(`DoH error: ${err.message}`);
+      }
+      return; // Stop here, don't continue with raw UDP
+    }
+
+    // Default behaviour for non-DNS UDP
     const tcpSocket = connect({
       hostname: targetAddress,
       port: targetPort,
