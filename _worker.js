@@ -87,7 +87,7 @@ function shuffleArray(array) {
   }
 }
 
-// Document class untuk generate HTML dengan sidebar dropdown ISP
+// Document class untuk generate HTML dengan sidebar sederhana
 class Document {
   constructor(request) {
     this.request = request;
@@ -96,9 +96,7 @@ class Document {
     this.proxies = [];
     this.pageButtons = [];
     this.selectedCountries = [];
-    this.selectedISP = "";
     this.availableCountries = [];
-    this.availableISPs = {};
   }
 
   setTitle(title) {
@@ -116,17 +114,6 @@ class Document {
     if (!this.availableCountries.includes(proxy.country)) {
       this.availableCountries.push(proxy.country);
     }
-    
-    // Collect available ISPs per country
-    if (!this.availableISPs[proxy.country]) {
-      this.availableISPs[proxy.country] = [];
-    }
-    if (!this.availableISPs[proxy.country].some(isp => isp.org === proxy.org)) {
-      this.availableISPs[proxy.country].push({
-        org: proxy.org,
-        count: this.proxies.filter(p => p.proxy.country === proxy.country && p.proxy.org === proxy.org).length
-      });
-    }
   }
 
   addPageButton(text, url, disabled = false) {
@@ -137,21 +124,9 @@ class Document {
     this.selectedCountries = countries || [];
   }
 
-  setSelectedISP(isp) {
-    this.selectedISP = isp || "";
-  }
-
   build() {
     // Sort available countries
     this.availableCountries.sort();
-    
-    // Update ISP counts
-    for (const country in this.availableISPs) {
-      this.availableISPs[country] = this.availableISPs[country].map(isp => ({
-        ...isp,
-        count: this.proxies.filter(p => p.proxy.country === country && p.proxy.org === isp.org).length
-      }));
-    }
     
     return `
 <!DOCTYPE html>
@@ -202,7 +177,7 @@ class Document {
             top: 0;
             left: 0;
             height: 100vh;
-            width: 300px;
+            width: 280px;
             z-index: 1000;
             overflow-y: auto;
             overflow-x: hidden;
@@ -233,7 +208,7 @@ class Document {
         }
         
         .main-content {
-            margin-left: 300px;
+            margin-left: 280px;
             transition: margin-left 0.3s ease;
             min-height: 100vh;
             overflow-x: hidden;
@@ -259,52 +234,6 @@ class Document {
             background: rgba(102, 126, 234, 0.15);
             border-left-color: #667eea;
             font-weight: 600;
-        }
-        
-        .isp-item {
-            transition: all 0.2s ease;
-            cursor: pointer;
-            border-left: 3px solid transparent;
-            margin-left: 10px;
-        }
-        
-        .isp-item:hover {
-            background: rgba(139, 92, 246, 0.1);
-            border-left-color: #8b5cf6;
-            transform: translateX(3px);
-        }
-        
-        .isp-item.active {
-            background: rgba(139, 92, 246, 0.15);
-            border-left-color: #8b5cf6;
-            font-weight: 600;
-        }
-        
-        .dropdown-toggle {
-            transition: all 0.2s ease;
-            cursor: pointer;
-        }
-        
-        .dropdown-toggle:hover {
-            background: rgba(102, 126, 234, 0.05);
-        }
-        
-        .dropdown-content {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.3s ease;
-        }
-        
-        .dropdown-content.open {
-            max-height: 500px;
-        }
-        
-        .dropdown-arrow {
-            transition: transform 0.2s ease;
-        }
-        
-        .dropdown-arrow.rotated {
-            transform: rotate(180deg);
         }
         
         .proxy-item {
@@ -476,18 +405,6 @@ class Document {
                               radial-gradient(circle at 75px 75px, rgba(255,255,255,0.1) 2px, transparent 0);
             background-size: 100px 100px;
         }
-        
-        .priority-countries {
-            border: 2px solid rgba(102, 126, 234, 0.2);
-            border-radius: 12px;
-            background: rgba(102, 126, 234, 0.05);
-        }
-        
-        .other-countries {
-            border: 1px solid rgba(156, 163, 175, 0.2);
-            border-radius: 12px;
-            background: rgba(156, 163, 175, 0.02);
-        }
     </style>
 </head>
 <body class="gradient-bg min-h-screen hero-pattern">
@@ -517,8 +434,8 @@ class Document {
             </div>
             
             <!-- All Countries Button -->
-            <div class="mb-6">
-                <div class="country-item p-3 rounded-lg ${this.selectedCountries.length === 0 && !this.selectedISP ? 'active' : ''}" 
+            <div class="mb-4">
+                <div class="country-item p-3 rounded-lg ${this.selectedCountries.length === 0 ? 'active' : ''}" 
                      onclick="filterByCountry('')">
                     <div class="flex items-center space-x-3">
                         <div class="text-xl">🌍</div>
@@ -530,114 +447,28 @@ class Document {
                 </div>
             </div>
             
-            <!-- Priority Countries (SG & ID) -->
-            <div class="priority-countries p-4 mb-6">
-                <h3 class="text-sm font-semibold text-purple-700 uppercase tracking-wide mb-3 flex items-center">
-                    <i class="fas fa-star mr-2"></i>Priority Servers
-                </h3>
+            <!-- Country List -->
+            <div class="space-y-2">
+                <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Filter by Country</h3>
                 
-                ${['ID', 'SG'].filter(country => this.availableCountries.includes(country)).map(country => {
+                ${this.availableCountries.map(country => {
                   const countryProxies = this.proxies.filter(p => p.proxy.country === country);
                   const isSelected = this.selectedCountries.includes(country);
-                  const countryISPs = this.availableISPs[country] || [];
                   
                   return `
-                    <div class="mb-4">
-                        <!-- Country Header -->
-                        <div class="country-item p-3 rounded-lg ${isSelected && !this.selectedISP ? 'active' : ''}" 
-                             onclick="filterByCountry('${country}')">
-                            <div class="flex items-center space-x-3">
-                                <div class="country-flag">${getFlagEmoji(country)}</div>
-                                <div class="flex-1">
-                                    <div class="font-semibold text-gray-800">${getCountryName(country)}</div>
-                                    <div class="text-xs text-gray-500">${countryProxies.length} servers</div>
-                                </div>
+                    <div class="country-item p-3 rounded-lg ${isSelected ? 'active' : ''}" 
+                         onclick="filterByCountry('${country}')">
+                        <div class="flex items-center space-x-3">
+                            <div class="country-flag">${getFlagEmoji(country)}</div>
+                            <div class="flex-1">
+                                <div class="font-semibold text-gray-800">${getCountryName(country)}</div>
+                                <div class="text-xs text-gray-500">${countryProxies.length} servers</div>
                             </div>
                         </div>
-                        
-                        <!-- ISP List for this country -->
-                        ${countryISPs.length > 1 ? `
-                        <div class="ml-4 mt-2 space-y-1">
-                            ${countryISPs.map(isp => {
-                              const ispProxies = this.proxies.filter(p => p.proxy.country === country && p.proxy.org === isp.org);
-                              const isISPSelected = this.selectedISP === isp.org && this.selectedCountries.includes(country);
-                              
-                              return `
-                                <div class="isp-item p-2 rounded-lg text-sm ${isISPSelected ? 'active' : ''}" 
-                                     onclick="filterByISP('${country}', '${isp.org}')">
-                                    <div class="flex items-center justify-between">
-                                        <span class="text-gray-700">${isp.org}</span>
-                                        <span class="text-xs text-gray-500">${ispProxies.length}</span>
-                                    </div>
-                                </div>
-                              `;
-                            }).join('')}
-                        </div>
-                        ` : ''}
                     </div>
                   `;
                 }).join('')}
             </div>
-            
-            <!-- Other Countries (Dropdown) -->
-            ${this.availableCountries.filter(country => !['ID', 'SG'].includes(country)).length > 0 ? `
-            <div class="other-countries p-4 mb-6">
-                <div class="dropdown-toggle p-3 rounded-lg" onclick="toggleDropdown('otherCountries')">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center space-x-2">
-                            <i class="fas fa-globe text-gray-600"></i>
-                            <span class="font-semibold text-gray-700">Other Countries</span>
-                            <span class="text-xs text-gray-500">(${this.availableCountries.filter(country => !['ID', 'SG'].includes(country)).length})</span>
-                        </div>
-                        <i class="fas fa-chevron-down dropdown-arrow text-gray-500" id="otherCountries-arrow"></i>
-                    </div>
-                </div>
-                
-                <div class="dropdown-content mt-2" id="otherCountries-content">
-                    ${this.availableCountries.filter(country => !['ID', 'SG'].includes(country)).map(country => {
-                      const countryProxies = this.proxies.filter(p => p.proxy.country === country);
-                      const isSelected = this.selectedCountries.includes(country);
-                      const countryISPs = this.availableISPs[country] || [];
-                      
-                      return `
-                        <div class="mb-3">
-                            <!-- Country Header -->
-                            <div class="country-item p-3 rounded-lg ${isSelected && !this.selectedISP ? 'active' : ''}" 
-                                 onclick="filterByCountry('${country}')">
-                                <div class="flex items-center space-x-3">
-                                    <div class="country-flag">${getFlagEmoji(country)}</div>
-                                    <div class="flex-1">
-                                        <div class="font-semibold text-gray-800">${getCountryName(country)}</div>
-                                        <div class="text-xs text-gray-500">${countryProxies.length} servers</div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- ISP List for this country -->
-                            ${countryISPs.length > 1 ? `
-                            <div class="ml-4 mt-2 space-y-1">
-                                ${countryISPs.map(isp => {
-                                  const ispProxies = this.proxies.filter(p => p.proxy.country === country && p.proxy.org === isp.org);
-                                  const isISPSelected = this.selectedISP === isp.org && this.selectedCountries.includes(country);
-                                  
-                                  return `
-                                    <div class="isp-item p-2 rounded-lg text-sm ${isISPSelected ? 'active' : ''}" 
-                                         onclick="filterByISP('${country}', '${isp.org}')">
-                                        <div class="flex items-center justify-between">
-                                            <span class="text-gray-700">${isp.org}</span>
-                                            <span class="text-xs text-gray-500">${ispProxies.length}</span>
-                                        </div>
-                                    </div>
-                                  `;
-                                }).join('')}
-                            </div>
-                            ` : ''}
-                        </div>
-                      `;
-                    }).join('')}
-                </div>
-            </div>
-            ` : ''}
             
             <!-- Telegram Bot Section -->
             <div class="mt-8 p-4 bg-gradient-to-r from-blue-100 to-purple-100 rounded-xl">
@@ -667,11 +498,9 @@ class Document {
                         </div>
                         <div>
                             <h1 class="text-3xl md:text-4xl font-bold gradient-text">
-                                ${this.selectedISP ? 
-                                  this.selectedISP + ' Servers' :
-                                  this.selectedCountries.length > 0 ? 
-                                    this.selectedCountries.map(c => getCountryName(c)).join(', ') + ' Servers' : 
-                                    'All Servers'}
+                                ${this.selectedCountries.length > 0 ? 
+                                  this.selectedCountries.map(c => getCountryName(c)).join(', ') + ' Servers' : 
+                                  'All Servers'}
                             </h1>
                             <p class="text-gray-600">${this.info.join(' • ')}</p>
                         </div>
@@ -842,25 +671,8 @@ class Document {
             } else {
                 currentUrl.searchParams.delete('cc');
             }
-            currentUrl.searchParams.delete('isp'); // Clear ISP filter
             currentUrl.searchParams.delete('page'); // Reset to first page
             window.location.href = currentUrl.toString();
-        }
-
-        function filterByISP(country, isp) {
-            const currentUrl = new URL(window.location);
-            currentUrl.searchParams.set('cc', country);
-            currentUrl.searchParams.set('isp', isp);
-            currentUrl.searchParams.delete('page'); // Reset to first page
-            window.location.href = currentUrl.toString();
-        }
-
-        function toggleDropdown(dropdownId) {
-            const content = document.getElementById(dropdownId + '-content');
-            const arrow = document.getElementById(dropdownId + '-arrow');
-            
-            content.classList.toggle('open');
-            arrow.classList.toggle('rotated');
         }
 
         function toggleSidebar() {
@@ -993,7 +805,7 @@ async function reverseProxy(request, target, targetPath) {
   return newResponse;
 }
 
-function getAllConfig(request, hostName, proxyList, page = 0, selectedCountries = [], selectedISP = "") {
+function getAllConfig(request, hostName, proxyList, page = 0, selectedCountries = []) {
   const startIndex = PROXY_PER_PAGE * page;
 
   try {
@@ -1011,7 +823,6 @@ function getAllConfig(request, hostName, proxyList, page = 0, selectedCountries 
     document.addInfo(`Total: ${proxyList.length} server`);
     document.addInfo(`Halaman: ${page + 1}/${Math.ceil(proxyList.length / PROXY_PER_PAGE)}`);
     document.setSelectedCountries(selectedCountries);
-    document.setSelectedISP(selectedISP);
 
     for (let i = startIndex; i < startIndex + PROXY_PER_PAGE; i++) {
       const proxy = proxyList[i];
@@ -1065,9 +876,6 @@ function getAllConfig(request, hostName, proxyList, page = 0, selectedCountries 
       const currentParams = new URLSearchParams();
       if (selectedCountries.length > 0) {
         currentParams.set('cc', selectedCountries.join(','));
-      }
-      if (selectedISP) {
-        currentParams.set('isp', selectedISP);
       }
       
       const prevPage = page > 0 ? page - 1 : 0;
@@ -1144,7 +952,6 @@ export default {
 
         // Queries
         const countrySelect = url.searchParams.get("cc")?.split(",");
-        const ispSelect = url.searchParams.get("isp");
         const proxyBankUrl = url.searchParams.get("proxy-list") || env.PROXY_BANK_URL;
         let proxyList = (await getProxyList(proxyBankUrl)).filter((proxy) => {
           // Filter proxies by Country
@@ -1154,17 +961,10 @@ export default {
             }
           }
           
-          // Filter proxies by ISP
-          if (ispSelect) {
-            if (proxy.org !== ispSelect) {
-              return false;
-            }
-          }
-          
           return true;
         });
 
-        const result = getAllConfig(request, hostname, proxyList, page, countrySelect, ispSelect);
+        const result = getAllConfig(request, hostname, proxyList, page, countrySelect);
         return new Response(result, {
           status: 200,
           headers: { "Content-Type": "text/html;charset=utf-8" },
@@ -1178,7 +978,6 @@ export default {
         const hostname = request.headers.get("Host");
 
         const countrySelect = url.searchParams.get("cc")?.split(",");
-        const ispSelect = url.searchParams.get("isp");
         const proxyBankUrl = url.searchParams.get("proxy-list") || env.PROXY_BANK_URL;
         let proxyList = (await getProxyList(proxyBankUrl)).filter((proxy) => {
           if (countrySelect) {
@@ -1187,16 +986,10 @@ export default {
             }
           }
           
-          if (ispSelect) {
-            if (proxy.org !== ispSelect) {
-              return false;
-            }
-          }
-          
           return true;
         });
 
-        const result = getAllConfig(request, hostname, proxyList, pageIndex, countrySelect, ispSelect);
+        const result = getAllConfig(request, hostname, proxyList, pageIndex, countrySelect);
         return new Response(result, {
           status: 200,
           headers: { "Content-Type": "text/html;charset=utf-8" },
