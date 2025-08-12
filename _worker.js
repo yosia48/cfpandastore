@@ -87,7 +87,7 @@ function shuffleArray(array) {
   }
 }
 
-// Document class untuk generate HTML dengan sidebar menu negara
+// Document class untuk generate HTML dengan sidebar dropdown ISP
 class Document {
   constructor(request) {
     this.request = request;
@@ -96,7 +96,9 @@ class Document {
     this.proxies = [];
     this.pageButtons = [];
     this.selectedCountries = [];
+    this.selectedISP = "";
     this.availableCountries = [];
+    this.availableISPs = {};
   }
 
   setTitle(title) {
@@ -114,6 +116,17 @@ class Document {
     if (!this.availableCountries.includes(proxy.country)) {
       this.availableCountries.push(proxy.country);
     }
+    
+    // Collect available ISPs per country
+    if (!this.availableISPs[proxy.country]) {
+      this.availableISPs[proxy.country] = [];
+    }
+    if (!this.availableISPs[proxy.country].some(isp => isp.org === proxy.org)) {
+      this.availableISPs[proxy.country].push({
+        org: proxy.org,
+        count: this.proxies.filter(p => p.proxy.country === proxy.country && p.proxy.org === proxy.org).length
+      });
+    }
   }
 
   addPageButton(text, url, disabled = false) {
@@ -124,9 +137,21 @@ class Document {
     this.selectedCountries = countries || [];
   }
 
+  setSelectedISP(isp) {
+    this.selectedISP = isp || "";
+  }
+
   build() {
     // Sort available countries
     this.availableCountries.sort();
+    
+    // Update ISP counts
+    for (const country in this.availableISPs) {
+      this.availableISPs[country] = this.availableISPs[country].map(isp => ({
+        ...isp,
+        count: this.proxies.filter(p => p.proxy.country === country && p.proxy.org === isp.org).length
+      }));
+    }
     
     return `
 <!DOCTYPE html>
@@ -139,7 +164,10 @@ class Document {
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        * { font-family: 'Inter', sans-serif; }
+        * { 
+            font-family: 'Inter', sans-serif; 
+            scroll-behavior: smooth;
+        }
         
         .gradient-bg {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -174,10 +202,30 @@ class Document {
             top: 0;
             left: 0;
             height: 100vh;
-            width: 280px;
+            width: 300px;
             z-index: 1000;
             overflow-y: auto;
+            overflow-x: hidden;
             transition: transform 0.3s ease;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(102, 126, 234, 0.3) transparent;
+        }
+        
+        .sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .sidebar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .sidebar::-webkit-scrollbar-thumb {
+            background: rgba(102, 126, 234, 0.3);
+            border-radius: 3px;
+        }
+        
+        .sidebar::-webkit-scrollbar-thumb:hover {
+            background: rgba(102, 126, 234, 0.5);
         }
         
         .sidebar.hidden {
@@ -185,8 +233,10 @@ class Document {
         }
         
         .main-content {
-            margin-left: 280px;
+            margin-left: 300px;
             transition: margin-left 0.3s ease;
+            min-height: 100vh;
+            overflow-x: hidden;
         }
         
         .main-content.full-width {
@@ -209,6 +259,52 @@ class Document {
             background: rgba(102, 126, 234, 0.15);
             border-left-color: #667eea;
             font-weight: 600;
+        }
+        
+        .isp-item {
+            transition: all 0.2s ease;
+            cursor: pointer;
+            border-left: 3px solid transparent;
+            margin-left: 10px;
+        }
+        
+        .isp-item:hover {
+            background: rgba(139, 92, 246, 0.1);
+            border-left-color: #8b5cf6;
+            transform: translateX(3px);
+        }
+        
+        .isp-item.active {
+            background: rgba(139, 92, 246, 0.15);
+            border-left-color: #8b5cf6;
+            font-weight: 600;
+        }
+        
+        .dropdown-toggle {
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        
+        .dropdown-toggle:hover {
+            background: rgba(102, 126, 234, 0.05);
+        }
+        
+        .dropdown-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        
+        .dropdown-content.open {
+            max-height: 500px;
+        }
+        
+        .dropdown-arrow {
+            transition: transform 0.2s ease;
+        }
+        
+        .dropdown-arrow.rotated {
+            transform: rotate(180deg);
         }
         
         .proxy-item {
@@ -362,6 +458,7 @@ class Document {
         @media (max-width: 768px) {
             .sidebar {
                 transform: translateX(-100%);
+                width: 280px;
             }
             .sidebar.show {
                 transform: translateX(0);
@@ -378,6 +475,18 @@ class Document {
             background-image: radial-gradient(circle at 25px 25px, rgba(255,255,255,0.1) 2px, transparent 0),
                               radial-gradient(circle at 75px 75px, rgba(255,255,255,0.1) 2px, transparent 0);
             background-size: 100px 100px;
+        }
+        
+        .priority-countries {
+            border: 2px solid rgba(102, 126, 234, 0.2);
+            border-radius: 12px;
+            background: rgba(102, 126, 234, 0.05);
+        }
+        
+        .other-countries {
+            border: 1px solid rgba(156, 163, 175, 0.2);
+            border-radius: 12px;
+            background: rgba(156, 163, 175, 0.02);
         }
     </style>
 </head>
@@ -408,8 +517,8 @@ class Document {
             </div>
             
             <!-- All Countries Button -->
-            <div class="mb-4">
-                <div class="country-item p-3 rounded-lg ${this.selectedCountries.length === 0 ? 'active' : ''}" 
+            <div class="mb-6">
+                <div class="country-item p-3 rounded-lg ${this.selectedCountries.length === 0 && !this.selectedISP ? 'active' : ''}" 
                      onclick="filterByCountry('')">
                     <div class="flex items-center space-x-3">
                         <div class="text-xl">🌍</div>
@@ -421,27 +530,114 @@ class Document {
                 </div>
             </div>
             
-            <!-- Country List -->
-            <div class="space-y-2">
-                <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Filter by Country</h3>
-                ${this.availableCountries.map(country => {
+            <!-- Priority Countries (SG & ID) -->
+            <div class="priority-countries p-4 mb-6">
+                <h3 class="text-sm font-semibold text-purple-700 uppercase tracking-wide mb-3 flex items-center">
+                    <i class="fas fa-star mr-2"></i>Priority Servers
+                </h3>
+                
+                ${['ID', 'SG'].filter(country => this.availableCountries.includes(country)).map(country => {
                   const countryProxies = this.proxies.filter(p => p.proxy.country === country);
                   const isSelected = this.selectedCountries.includes(country);
+                  const countryISPs = this.availableISPs[country] || [];
                   
                   return `
-                    <div class="country-item p-3 rounded-lg ${isSelected ? 'active' : ''}" 
-                         onclick="filterByCountry('${country}')">
-                        <div class="flex items-center space-x-3">
-                            <div class="country-flag">${getFlagEmoji(country)}</div>
-                            <div class="flex-1">
-                                <div class="font-semibold text-gray-800">${getCountryName(country)}</div>
-                                <div class="text-xs text-gray-500">${countryProxies.length} servers</div>
+                    <div class="mb-4">
+                        <!-- Country Header -->
+                        <div class="country-item p-3 rounded-lg ${isSelected && !this.selectedISP ? 'active' : ''}" 
+                             onclick="filterByCountry('${country}')">
+                            <div class="flex items-center space-x-3">
+                                <div class="country-flag">${getFlagEmoji(country)}</div>
+                                <div class="flex-1">
+                                    <div class="font-semibold text-gray-800">${getCountryName(country)}</div>
+                                    <div class="text-xs text-gray-500">${countryProxies.length} servers</div>
+                                </div>
                             </div>
                         </div>
+                        
+                        <!-- ISP List for this country -->
+                        ${countryISPs.length > 1 ? `
+                        <div class="ml-4 mt-2 space-y-1">
+                            ${countryISPs.map(isp => {
+                              const ispProxies = this.proxies.filter(p => p.proxy.country === country && p.proxy.org === isp.org);
+                              const isISPSelected = this.selectedISP === isp.org && this.selectedCountries.includes(country);
+                              
+                              return `
+                                <div class="isp-item p-2 rounded-lg text-sm ${isISPSelected ? 'active' : ''}" 
+                                     onclick="filterByISP('${country}', '${isp.org}')">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-gray-700">${isp.org}</span>
+                                        <span class="text-xs text-gray-500">${ispProxies.length}</span>
+                                    </div>
+                                </div>
+                              `;
+                            }).join('')}
+                        </div>
+                        ` : ''}
                     </div>
                   `;
                 }).join('')}
             </div>
+            
+            <!-- Other Countries (Dropdown) -->
+            ${this.availableCountries.filter(country => !['ID', 'SG'].includes(country)).length > 0 ? `
+            <div class="other-countries p-4 mb-6">
+                <div class="dropdown-toggle p-3 rounded-lg" onclick="toggleDropdown('otherCountries')">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <i class="fas fa-globe text-gray-600"></i>
+                            <span class="font-semibold text-gray-700">Other Countries</span>
+                            <span class="text-xs text-gray-500">(${this.availableCountries.filter(country => !['ID', 'SG'].includes(country)).length})</span>
+                        </div>
+                        <i class="fas fa-chevron-down dropdown-arrow text-gray-500" id="otherCountries-arrow"></i>
+                    </div>
+                </div>
+                
+                <div class="dropdown-content mt-2" id="otherCountries-content">
+                    ${this.availableCountries.filter(country => !['ID', 'SG'].includes(country)).map(country => {
+                      const countryProxies = this.proxies.filter(p => p.proxy.country === country);
+                      const isSelected = this.selectedCountries.includes(country);
+                      const countryISPs = this.availableISPs[country] || [];
+                      
+                      return `
+                        <div class="mb-3">
+                            <!-- Country Header -->
+                            <div class="country-item p-3 rounded-lg ${isSelected && !this.selectedISP ? 'active' : ''}" 
+                                 onclick="filterByCountry('${country}')">
+                                <div class="flex items-center space-x-3">
+                                    <div class="country-flag">${getFlagEmoji(country)}</div>
+                                    <div class="flex-1">
+                                        <div class="font-semibold text-gray-800">${getCountryName(country)}</div>
+                                        <div class="text-xs text-gray-500">${countryProxies.length} servers</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- ISP List for this country -->
+                            ${countryISPs.length > 1 ? `
+                            <div class="ml-4 mt-2 space-y-1">
+                                ${countryISPs.map(isp => {
+                                  const ispProxies = this.proxies.filter(p => p.proxy.country === country && p.proxy.org === isp.org);
+                                  const isISPSelected = this.selectedISP === isp.org && this.selectedCountries.includes(country);
+                                  
+                                  return `
+                                    <div class="isp-item p-2 rounded-lg text-sm ${isISPSelected ? 'active' : ''}" 
+                                         onclick="filterByISP('${country}', '${isp.org}')">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-gray-700">${isp.org}</span>
+                                            <span class="text-xs text-gray-500">${ispProxies.length}</span>
+                                        </div>
+                                    </div>
+                                  `;
+                                }).join('')}
+                            </div>
+                            ` : ''}
+                        </div>
+                      `;
+                    }).join('')}
+                </div>
+            </div>
+            ` : ''}
             
             <!-- Telegram Bot Section -->
             <div class="mt-8 p-4 bg-gradient-to-r from-blue-100 to-purple-100 rounded-xl">
@@ -471,9 +667,11 @@ class Document {
                         </div>
                         <div>
                             <h1 class="text-3xl md:text-4xl font-bold gradient-text">
-                                ${this.selectedCountries.length > 0 ? 
-                                  this.selectedCountries.map(c => getCountryName(c)).join(', ') + ' Servers' : 
-                                  'All Servers'}
+                                ${this.selectedISP ? 
+                                  this.selectedISP + ' Servers' :
+                                  this.selectedCountries.length > 0 ? 
+                                    this.selectedCountries.map(c => getCountryName(c)).join(', ') + ' Servers' : 
+                                    'All Servers'}
                             </h1>
                             <p class="text-gray-600">${this.info.join(' • ')}</p>
                         </div>
@@ -569,7 +767,7 @@ class Document {
                 <div class="text-6xl mb-4">🔍</div>
                 <h3 class="text-2xl font-bold text-gray-800 mb-4">No Servers Found</h3>
                 <p class="text-gray-600 mb-6">
-                    No servers available for the selected country. Try selecting "All Countries" or choose a different country.
+                    No servers available for the selected filter. Try selecting "All Countries" or choose a different option.
                 </p>
                 <button onclick="filterByCountry('')" class="btn-primary text-white px-6 py-3 rounded-lg font-semibold">
                     Show All Countries
@@ -644,8 +842,25 @@ class Document {
             } else {
                 currentUrl.searchParams.delete('cc');
             }
+            currentUrl.searchParams.delete('isp'); // Clear ISP filter
             currentUrl.searchParams.delete('page'); // Reset to first page
             window.location.href = currentUrl.toString();
+        }
+
+        function filterByISP(country, isp) {
+            const currentUrl = new URL(window.location);
+            currentUrl.searchParams.set('cc', country);
+            currentUrl.searchParams.set('isp', isp);
+            currentUrl.searchParams.delete('page'); // Reset to first page
+            window.location.href = currentUrl.toString();
+        }
+
+        function toggleDropdown(dropdownId) {
+            const content = document.getElementById(dropdownId + '-content');
+            const arrow = document.getElementById(dropdownId + '-arrow');
+            
+            content.classList.toggle('open');
+            arrow.classList.toggle('rotated');
         }
 
         function toggleSidebar() {
@@ -680,19 +895,36 @@ class Document {
             });
         });
 
-        // Add smooth scrolling
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                const target = document.querySelector(this.getAttribute('href'));
-                if (target) {
-                    target.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'start'
-                    });
-                }
-            });
+        // Smooth scrolling for all elements
+        document.addEventListener('DOMContentLoaded', function() {
+            // Enable smooth scrolling for the main content
+            const mainContent = document.getElementById('mainContent');
+            if (mainContent) {
+                mainContent.style.scrollBehavior = 'smooth';
+            }
+            
+            // Enable smooth scrolling for sidebar
+            const sidebar = document.getElementById('sidebar');
+            if (sidebar) {
+                sidebar.style.scrollBehavior = 'smooth';
+            }
         });
+
+        // Improve scrolling performance
+        let ticking = false;
+        function updateScrolling() {
+            // Add any scroll-based animations here
+            ticking = false;
+        }
+
+        function requestTick() {
+            if (!ticking) {
+                requestAnimationFrame(updateScrolling);
+                ticking = true;
+            }
+        }
+
+        window.addEventListener('scroll', requestTick);
     </script>
 </body>
 </html>
@@ -761,7 +993,7 @@ async function reverseProxy(request, target, targetPath) {
   return newResponse;
 }
 
-function getAllConfig(request, hostName, proxyList, page = 0, selectedCountries = []) {
+function getAllConfig(request, hostName, proxyList, page = 0, selectedCountries = [], selectedISP = "") {
   const startIndex = PROXY_PER_PAGE * page;
 
   try {
@@ -779,6 +1011,7 @@ function getAllConfig(request, hostName, proxyList, page = 0, selectedCountries 
     document.addInfo(`Total: ${proxyList.length} server`);
     document.addInfo(`Halaman: ${page + 1}/${Math.ceil(proxyList.length / PROXY_PER_PAGE)}`);
     document.setSelectedCountries(selectedCountries);
+    document.setSelectedISP(selectedISP);
 
     for (let i = startIndex; i < startIndex + PROXY_PER_PAGE; i++) {
       const proxy = proxyList[i];
@@ -832,6 +1065,9 @@ function getAllConfig(request, hostName, proxyList, page = 0, selectedCountries 
       const currentParams = new URLSearchParams();
       if (selectedCountries.length > 0) {
         currentParams.set('cc', selectedCountries.join(','));
+      }
+      if (selectedISP) {
+        currentParams.set('isp', selectedISP);
       }
       
       const prevPage = page > 0 ? page - 1 : 0;
@@ -908,16 +1144,27 @@ export default {
 
         // Queries
         const countrySelect = url.searchParams.get("cc")?.split(",");
+        const ispSelect = url.searchParams.get("isp");
         const proxyBankUrl = url.searchParams.get("proxy-list") || env.PROXY_BANK_URL;
         let proxyList = (await getProxyList(proxyBankUrl)).filter((proxy) => {
           // Filter proxies by Country
           if (countrySelect) {
-            return countrySelect.includes(proxy.country);
+            if (!countrySelect.includes(proxy.country)) {
+              return false;
+            }
           }
+          
+          // Filter proxies by ISP
+          if (ispSelect) {
+            if (proxy.org !== ispSelect) {
+              return false;
+            }
+          }
+          
           return true;
         });
 
-        const result = getAllConfig(request, hostname, proxyList, page, countrySelect);
+        const result = getAllConfig(request, hostname, proxyList, page, countrySelect, ispSelect);
         return new Response(result, {
           status: 200,
           headers: { "Content-Type": "text/html;charset=utf-8" },
@@ -931,15 +1178,25 @@ export default {
         const hostname = request.headers.get("Host");
 
         const countrySelect = url.searchParams.get("cc")?.split(",");
+        const ispSelect = url.searchParams.get("isp");
         const proxyBankUrl = url.searchParams.get("proxy-list") || env.PROXY_BANK_URL;
         let proxyList = (await getProxyList(proxyBankUrl)).filter((proxy) => {
           if (countrySelect) {
-            return countrySelect.includes(proxy.country);
+            if (!countrySelect.includes(proxy.country)) {
+              return false;
+            }
           }
+          
+          if (ispSelect) {
+            if (proxy.org !== ispSelect) {
+              return false;
+            }
+          }
+          
           return true;
         });
 
-        const result = getAllConfig(request, hostname, proxyList, pageIndex, countrySelect);
+        const result = getAllConfig(request, hostname, proxyList, pageIndex, countrySelect, ispSelect);
         return new Response(result, {
           status: 200,
           headers: { "Content-Type": "text/html;charset=utf-8" },
